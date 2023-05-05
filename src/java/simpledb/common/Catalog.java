@@ -1,5 +1,6 @@
 package simpledb.common;
 
+import simpledb.optimizer.TableStats;
 import simpledb.storage.DbFile;
 import simpledb.storage.HeapFile;
 import simpledb.storage.TupleDesc;
@@ -22,12 +23,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+    Map<Integer, Table> tableMap;
+
+    Map<String, Integer> tableIntegerMap;
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // TODO: some code goes here
+        tableMap =  new HashMap<>();
+        tableIntegerMap = new HashMap<>();
     }
 
     /**
@@ -42,6 +48,9 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // TODO: some code goes here
+        Table table = new Table(file, name, pkeyField);
+        tableMap.put(file.getId(), table);
+        tableIntegerMap.put(table.name, file.getId());
     }
 
     public void addTable(DbFile file, String name) {
@@ -67,7 +76,12 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // TODO: some code goes here
-        return 0;
+        if(tableIntegerMap.containsKey(name)) {
+            return tableIntegerMap.get(name);
+        }
+        else {
+            throw new NoSuchElementException("there is no such table");
+        }
     }
 
     /**
@@ -79,7 +93,8 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // TODO: some code goes here
-        return null;
+        Table table = tableMap.get(tableid);
+        return table.file.getTupleDesc();
     }
 
     /**
@@ -91,22 +106,22 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // TODO: some code goes here
-        return null;
+        return tableMap.get(tableid).file;
     }
 
     public String getPrimaryKey(int tableid) {
         // TODO: some code goes here
-        return null;
+        return tableMap.get(tableid).pkeyField;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // TODO: some code goes here
-        return null;
+        return tableMap.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // TODO: some code goes here
-        return null;
+        return tableMap.get(id).name;
     }
 
     /**
@@ -114,6 +129,8 @@ public class Catalog {
      */
     public void clear() {
         // TODO: some code goes here
+        tableMap.clear();
+        tableIntegerMap.clear();
     }
 
     /**
