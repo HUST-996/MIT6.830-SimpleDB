@@ -7,7 +7,9 @@ import simpledb.common.Debug;
 import simpledb.transaction.TransactionId;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
@@ -76,8 +78,7 @@ public class HeapPage implements Page {
      */
     private int getNumTuples() {
         // TODO: some code goes here
-        return 0;
-
+        return (BufferPool.getPageSize() * 8) / (td.getSize() * 8 + 1);
     }
 
     /**
@@ -88,7 +89,7 @@ public class HeapPage implements Page {
     private int getHeaderSize() {
 
         // TODO: some code goes here
-        return 0;
+        return (int) Math.ceil((double) getNumTuples() / 8);
 
     }
 
@@ -122,7 +123,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
         // TODO: some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return pid;
     }
 
     /**
@@ -256,6 +257,7 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // TODO: some code goes here
         // not necessary for lab1
+
     }
 
     /**
@@ -294,7 +296,16 @@ public class HeapPage implements Page {
      */
     public int getNumUnusedSlots() {
         // TODO: some code goes here
-        return 0;
+        int numUsedSlots = 0;
+        for(byte b : header) {
+            for(int i = 0; i < 8; i++) {
+                int bit = ((b >> i) & (0x1));
+                if(bit == 0) {
+                    numUsedSlots++;
+                }
+            }
+        }
+        return numUsedSlots;
     }
 
     /**
@@ -302,7 +313,10 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // TODO: some code goes here
-        return false;
+        int idx = i / 8;
+        int bit = i % 8;
+        int associated_bit = (header[idx] >> bit) & 0x1;
+        return associated_bit == 1;
     }
 
     /**
@@ -311,6 +325,7 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // TODO: some code goes here
         // not necessary for lab1
+
     }
 
     /**
@@ -319,7 +334,11 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // TODO: some code goes here
-        return null;
+        List<Tuple> tupleList = new ArrayList<>();
+        for(int i = 0; i < numSlots; i++) {
+            if(isSlotUsed(i)) tupleList.add(tuples[i]);
+        }
+        return tupleList.iterator();
     }
 
 }

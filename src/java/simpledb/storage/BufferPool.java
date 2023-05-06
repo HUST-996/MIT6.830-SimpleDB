@@ -31,6 +31,10 @@ public class BufferPool {
 
     private static int pageSize = DEFAULT_PAGE_SIZE;
 
+    int numPages;
+
+    Map<PageId, Page> pageMap;
+
     /**
      * Default number of pages passed to the constructor. This is used by
      * other classes. BufferPool should use the numPages argument to the
@@ -45,6 +49,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // TODO: some code goes here
+        this.numPages = numPages;
+        pageMap = new HashMap<>();
     }
 
     public static int getPageSize() {
@@ -79,7 +85,13 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // TODO: some code goes here
-        return null;
+        // 如果缓存池里没有该页面
+        if(!pageMap.containsKey(pid)) {
+            DbFile databaseFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = databaseFile.readPage(pid);
+            pageMap.put(pid, page);
+        }
+        return pageMap.get(pid);
     }
 
     /**
