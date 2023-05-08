@@ -103,7 +103,17 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // TODO: some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        StringBuilder stringBuilder = new StringBuilder();
+        Iterator<TupleDesc.TDItem> tdItems = this.td.iterator();
+        int i = 0;
+        while (tdItems.hasNext()) {
+            TupleDesc.TDItem item = tdItems.next();
+            stringBuilder.append("FiledName: ").append(item.fieldName);
+            stringBuilder.append("==> Value: ").append(fields.get(i).toString());
+            stringBuilder.append("\n");
+            i++;
+        }
+        return stringBuilder.toString();
     }
 
     /**

@@ -1,7 +1,5 @@
 package simpledb.storage;
 
-import java.util.Objects;
-
 /**
  * Unique identifier for HeapPage objects.
  */

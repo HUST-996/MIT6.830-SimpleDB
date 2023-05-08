@@ -1,14 +1,11 @@
 package simpledb.storage;
 
-import simpledb.Parser;
 import simpledb.common.*;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
-import javax.xml.crypto.Data;
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
 import java.util.*;
 
@@ -91,6 +88,9 @@ public class HeapFile implements DbFile {
                 fileChannel.close();
                 throw new IllegalArgumentException(String.format("table %d page %d is invalid", tableId, pageNo));
             }
+            System.out.println(randomAccessFile.length());
+            System.out.println(Database.getCatalog().getTupleDesc(tableId));
+            System.out.println(BufferPool.getPageSize());
             fileChannel.position(offset);
             ByteBuffer buffer = ByteBuffer.allocate(BufferPool.getPageSize());
             fileChannel.read(buffer);
@@ -168,7 +168,7 @@ public class HeapFile implements DbFile {
         }
 
         private Iterator<Tuple> getTupleIterator(int pageNumber) throws DbException, TransactionAbortedException {
-            if(pageNumber < 0 || pageNumber > heapFile.numPages()) {
+            if(pageNumber < 0 || pageNumber >= heapFile.numPages()) {
                 throw new DbException(String.format("heapFile %d does not exist in page[%d]!", heapFile.getId(), pageNumber));
             }
             else {
