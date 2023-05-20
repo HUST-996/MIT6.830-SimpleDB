@@ -88,9 +88,6 @@ public class HeapFile implements DbFile {
                 fileChannel.close();
                 throw new IllegalArgumentException(String.format("table %d page %d is invalid", tableId, pageNo));
             }
-            System.out.println(randomAccessFile.length());
-            System.out.println(Database.getCatalog().getTupleDesc(tableId));
-            System.out.println(BufferPool.getPageSize());
             fileChannel.position(offset);
             ByteBuffer buffer = ByteBuffer.allocate(BufferPool.getPageSize());
             fileChannel.read(buffer);

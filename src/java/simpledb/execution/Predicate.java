@@ -12,6 +12,14 @@ public class Predicate implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    int fieldNo;
+
+    //比较策略
+    Op op;
+
+    //指定的比较字段
+    Field operand;
+
     /**
      * Constants used for return codes in Field.compare
      */
@@ -57,6 +65,9 @@ public class Predicate implements Serializable {
      */
     public Predicate(int field, Op op, Field operand) {
         // TODO: some code goes here
+        this.fieldNo = field;
+        this.op = op;
+        this.operand = operand;
     }
 
     /**
@@ -64,7 +75,7 @@ public class Predicate implements Serializable {
      */
     public int getField() {
         // TODO: some code goes here
-        return -1;
+        return fieldNo;
     }
 
     /**
@@ -72,7 +83,7 @@ public class Predicate implements Serializable {
      */
     public Op getOp() {
         // TODO: some code goes here
-        return null;
+        return op;
     }
 
     /**
@@ -80,7 +91,7 @@ public class Predicate implements Serializable {
      */
     public Field getOperand() {
         // TODO: some code goes here
-        return null;
+        return operand;
     }
 
     /**
@@ -94,7 +105,8 @@ public class Predicate implements Serializable {
      */
     public boolean filter(Tuple t) {
         // TODO: some code goes here
-        return false;
+        Field field = t.getField(fieldNo);
+        return field.compare(op, operand);
     }
 
     /**

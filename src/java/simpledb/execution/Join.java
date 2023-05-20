@@ -1,6 +1,8 @@
 package simpledb.execution;
 
 import simpledb.common.DbException;
+import simpledb.common.Type;
+import simpledb.storage.IntField;
 import simpledb.storage.Tuple;
 import simpledb.storage.TupleDesc;
 import simpledb.transaction.TransactionAbortedException;
@@ -14,6 +16,11 @@ public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    JoinPredicate p;
+
+    OpIterator[] children;
+
+    Tuple tuple1;
     /**
      * Constructor. Accepts two children to join and the predicate to join them
      * on
@@ -24,11 +31,15 @@ public class Join extends Operator {
      */
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
         // TODO: some code goes here
+        this.p = p;
+        children = new OpIterator[2];
+        children[0] = child1;
+        children[1] = child2;
     }
 
     public JoinPredicate getJoinPredicate() {
         // TODO: some code goes here
-        return null;
+        return p;
     }
 
     /**
@@ -37,7 +48,7 @@ public class Join extends Operator {
      */
     public String getJoinField1Name() {
         // TODO: some code goes here
-        return null;
+        return children[0].getTupleDesc().getFieldName(p.fieldNo1);
     }
 
     /**
@@ -46,7 +57,7 @@ public class Join extends Operator {
      */
     public String getJoinField2Name() {
         // TODO: some code goes here
-        return null;
+        return children[0].getTupleDesc().getFieldName(p.fieldNo2);
     }
 
     /**
@@ -55,20 +66,40 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // TODO: some code goes here
-        return null;
+        TupleDesc child1 = children[0].getTupleDesc();
+        TupleDesc child2 = children[1].getTupleDesc();
+        Type[] typeAr = new Type[child1.numFields() + child2.numFields()];
+        String[] fieldAr = new String[child1.numFields() + child2.numFields()];
+        for(int i = 0; i < child1.numFields(); i++) {
+            typeAr[i] = child1.getFieldType(i);
+            fieldAr[i] = child1.getFieldName(i);
+        }
+        for(int i = child1.numFields(); i < child2.numFields() + child1.numFields(); i++) {
+            typeAr[i] = child2.getFieldType(i - child1.numFields());
+            fieldAr[i] = child2.getFieldName(i - child1.numFields());
+        }
+        return new TupleDesc(typeAr, fieldAr);
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // TODO: some code goes here
+        super.open();
+        children[0].open();
+        children[1].open();
     }
 
     public void close() {
         // TODO: some code goes here
+        super.close();
+        children[0].close();
+        children[1].close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // TODO: some code goes here
+        children[0].rewind();
+        children[1].rewind();
     }
 
     /**
@@ -91,18 +122,42 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // TODO: some code goes here
+        while (children[0].hasNext() || tuple1 != null) {
+            if(children[0].hasNext() && tuple1 == null) {
+                tuple1 = children[0].next();
+            }
+            while (children[1].hasNext()) {
+                Tuple tuple2 = children[1].next();
+                if (p.filter(tuple1, tuple2)) {
+                    TupleDesc tupleDesc = getTupleDesc();
+                    Tuple tuple = new Tuple(tupleDesc);
+                    int len1 = tuple1.getTupleDesc().numFields();
+                    int len2 = tuple2.getTupleDesc().numFields();
+                    for(int i = 0; i < len1; i++) {
+                        tuple.setField(i, tuple1.getField(i));
+                    }
+                    for(int i = 0; i < len2; i++) {
+                        tuple.setField(i + len1, tuple2.getField(i));
+                    }
+                    return tuple;
+                }
+            }
+            tuple1 = null;
+            children[1].rewind();
+        }
         return null;
     }
 
     @Override
     public OpIterator[] getChildren() {
         // TODO: some code goes here
-        return null;
+        return children;
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // TODO: some code goes here
+        this.children = children;
     }
 
 }
