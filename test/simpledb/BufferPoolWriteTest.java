@@ -21,6 +21,8 @@ import static org.junit.Assert.*;
 import junit.framework.JUnit4TestAdapter;
 import simpledb.transaction.TransactionId;
 
+import javax.xml.crypto.Data;
+
 public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
     private TransactionId tid;
 
@@ -105,7 +107,6 @@ public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
     	
     	// clear the cache
     	Database.resetBufferPool(BufferPool.DEFAULT_PAGES);
-        
     	// delete 504 tuples from the first page
     	for (int i = 0; i < 504; ++i) {
     		Tuple t = tuples.get(i);

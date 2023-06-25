@@ -7,6 +7,7 @@ import simpledb.common.Permissions;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
+import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +34,7 @@ public class BufferPool {
 
     int numPages;
 
-    Map<PageId, Page> pageMap;
+    private LRUCache lruCache;
 
     /**
      * Default number of pages passed to the constructor. This is used by
@@ -50,7 +51,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // TODO: some code goes here
         this.numPages = numPages;
-        pageMap = new HashMap<>();
+        lruCache = new LRUCache(numPages);
     }
 
     public static int getPageSize() {
@@ -86,12 +87,12 @@ public class BufferPool {
             throws TransactionAbortedException, DbException {
         // TODO: some code goes here
         // 如果缓存池里没有该页面
-        if(!pageMap.containsKey(pid)) {
+        if(lruCache.get(pid) == null) {
             DbFile databaseFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = databaseFile.readPage(pid);
-            pageMap.put(pid, page);
+            lruCache.put(pid, page);
         }
-        return pageMap.get(pid);
+        return lruCache.get(pid);
     }
 
     /**
@@ -158,6 +159,12 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // TODO: some code goes here
         // not necessary for lab1
+        HeapFile heapFile = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pages = heapFile.insertTuple(tid, t);
+        for(Page page : pages) {
+            PageId pageId = page.getId();
+            page.markDirty(true, tid);
+        }
     }
 
     /**
@@ -177,6 +184,8 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // TODO: some code goes here
         // not necessary for lab1
+        HeapFile heapFile = (HeapFile) Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        heapFile.deleteTuple(tid, t);
     }
 
     /**
@@ -187,7 +196,12 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // TODO: some code goes here
         // not necessary for lab1
-
+        for(Map.Entry<PageId, LRUCache.Node> group : lruCache.getEntrySet()) {
+            Page page = group.getValue().val;
+            if (page.isDirty() != null) {
+                this.flushPage(group.getKey());
+            }
+        }
     }
 
     /**
@@ -202,6 +216,9 @@ public class BufferPool {
     public synchronized void removePage(PageId pid) {
         // TODO: some code goes here
         // not necessary for lab1
+        if(pid != null) {
+            lruCache.removeByKey(pid);
+        }
     }
 
     /**
@@ -212,6 +229,16 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // TODO: some code goes here
         // not necessary for lab1
+        Page target = lruCache.get(pid);
+        if(target == null) {
+            return;
+        }
+        TransactionId tid = target.isDirty();
+        if(tid != null) {
+            Page before = target.getBeforeImage();
+            Database.getLogFile().logWrite(tid, before, target);
+            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(target);
+        }
     }
 
     /**
@@ -220,6 +247,17 @@ public class BufferPool {
     public synchronized void flushPages(TransactionId tid) throws IOException {
         // TODO: some code goes here
         // not necessary for lab1|lab2
+        for(Map.Entry<PageId, LRUCache.Node> group : this.lruCache.getEntrySet()) {
+            PageId pid = group.getKey();
+            Page flushPage = group.getValue().val;
+            TransactionId flushPageDirty = flushPage.isDirty();
+            Page beforeImage = flushPage.getBeforeImage();
+            flushPage.setBeforeImage();
+            if(flushPageDirty != null && flushPageDirty.equals(tid)) {
+                Database.getLogFile().logWrite(tid, beforeImage, flushPage);
+                Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(flushPage);
+            }
+        }
     }
 
     /**
@@ -231,4 +269,95 @@ public class BufferPool {
         // not necessary for lab1
     }
 
+    private static class LRUCache {
+
+        private static class Node {
+            PageId key;
+            Page val;
+            Node pre;
+            Node next;
+            public Node(PageId key, Page val) {
+                this.key = key;
+                this.val = val;
+            }
+        }
+        int capacity;
+        int size;
+        ConcurrentHashMap<PageId, Node> map;
+        Node head = new Node(null, null);
+        Node tail = new Node(null, null);
+
+        public LRUCache(int capacity) {
+            this.capacity = capacity;
+            map = new ConcurrentHashMap<>();
+            head.next = tail;
+            tail.pre = head;
+            size = 0;
+        }
+
+        public synchronized Page get(PageId key) {
+            if(map.containsKey(key)) {
+                remove(map.get(key));
+                moveToHead(map.get(key));
+                return map.get(key).val;
+            }
+            else {
+                return null;
+            }
+        }
+
+        public synchronized void put(PageId key, Page value) {
+            Node newNode = new Node(key, value);
+            if(map.containsKey(key)) {
+                remove(map.get(key));
+            }
+            else {
+                size++;
+                if(size > capacity) {
+                    Node removeNode = tail.pre;
+                    //丢失不是脏页的页
+                    while (removeNode.val.isDirty() != null && removeNode != head) {
+                        removeNode = removeNode.pre;
+                    }
+                    if (removeNode != head) {
+                        map.remove(tail.pre.key);
+                        remove(tail.pre);
+                        size--;
+                    }
+                }
+            }
+            moveToHead(newNode);
+            map.put(key, newNode);
+        }
+
+        public synchronized void remove(Node node) {
+            Node pre = node.pre;
+            Node next = node.next;
+            pre.next = next;
+            next.pre = pre;
+        }
+
+        public synchronized void moveToHead(Node node) {
+            Node next = head.next;
+
+            next.pre = node;
+            node.next = next;
+
+            head.next = node;
+            node.pre = head;
+        }
+
+        public synchronized void removeByKey(PageId key) {
+            Node node = map.get(key);
+            remove(node);
+        }
+
+        public synchronized int getSize() {
+            return size;
+        }
+
+        public Set<Map.Entry<PageId, Node>> getEntrySet() {
+            return map.entrySet();
+        }
+    }
 }
